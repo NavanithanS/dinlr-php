@@ -1,7 +1,7 @@
 <?php return array (
-  'api_key' => '7007bee2d6a2cff0fe5a00cb8fe6f6a3',
-  'api_url' => 'https://api.dinlr.com/v1',
-  'restaurant_id' => 'f4dd56dd-8d7e-4485-8d7d-a6ab32251954',
+  'api_key' => 'test_api_key',
+  'api_url' => env('DINLR_TEST_API_URL'),
+  'restaurant_id' => env('DINLR_TEST_RESTAURANT_ID'),
   'timeout' => 5,
   'debug' => true,
   'test_data' => 
@@ -31,23 +31,23 @@
       'amount' => 100.0,
     ),
   ),
-  'client_id' => 'LBUEEETXDVCPYIIPMTVGDLEPLDCVSMIC',
-  'client_secret' => 'RHLPJRVFJJDWUFWOLGEPXCVIHTTDJEQG',
-  'redirect_uri' => 'https://yins.3b.my/dinlrauthorize',
+  'client_id' => env('DINLR_TEST_CLIENT_ID'),
+  'client_secret' => env('DINLR_TEST_CLIENT_SECRET'),
+  'redirect_uri' => env('DINLR_TEST_REDIRECT_URI'),
   'test_oauth_data' => 
   array (
     'state' => 'fromNava',
-    'backoffice_email' => 'nava@3b.my',
-    'backoffice_password' => 'GwKSso$q?',
+    'backoffice_email' => env('DINLR_TEST_BACKOFFICE_EMAIL'),
+    'backoffice_password' => env('DINLR_TEST_BACKOFFICE_PASSWORD'),
     'callback' => 
     array (
-      'code' => 'e2b02b528f5ce66474f806791b4923d7',
-      'restaurant_id' => 'f4dd56dd-8d7e-4485-8d7d-a6ab32251954',
+      'code' => 'test_auth_code',
+      'restaurant_id' => 'test_restaurant_id',
     ),
     'token_response' => 
     array (
-      'access_token' => '7007bee2d6a2cff0fe5a00cb8fe6f6a3',
-      'refresh_token' => 'a9539973999435549647dee47c04db05',
+      'access_token' => 'test_access_token',
+      'refresh_token' => 'test_refresh_token',
       'expires_in' => 1209600,
       'token_type' => 'bearer',
     ),
