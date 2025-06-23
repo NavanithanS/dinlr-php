@@ -128,10 +128,16 @@ class MenuTest extends TestCase
                 $isAvailable = $menu->isAvailableOnDay($day);
                 echo "\n  - " . $day . ": " . ($isAvailable ? 'Available' : 'Not available');
 
+                // Add assertion: isAvailableOnDay should return a boolean
+                $this->assertIsBool($isAvailable, "isAvailableOnDay should return a boolean");
+
                 if ($isAvailable) {
                     $timeInfo = $menu->getTimeForDay($day);
                     if ($timeInfo) {
                         echo " (" . $timeInfo['start_time'] . " - " . $timeInfo['end_time'] . ")";
+                        // Add assertion: timeInfo should have start_time and end_time
+                        $this->assertArrayHasKey('start_time', $timeInfo);
+                        $this->assertArrayHasKey('end_time', $timeInfo);
                     }
                 }
             }
@@ -187,6 +193,11 @@ class MenuTest extends TestCase
                     echo "\n• Items with variants: " . $itemsWithVariants;
                     echo "\n• Items with modifiers: " . $itemsWithModifiers;
                     echo "\n• Total variants across all items: " . $totalVariants;
+
+                    // Add assertion: items should be an array
+                    $this->assertIsArray($items, 'Menu items should be an array');
+                    // Add assertion: at least one item exists
+                    $this->assertGreaterThan(0, count($items), 'Menu should have at least one item');
 
                     break; // Just analyze the first menu with items
                 }
@@ -253,6 +264,8 @@ class MenuTest extends TestCase
                             if (isset($variant['price'])) {
                                 echo "$" . $variant['price'];
                                 $foundPricing = true;
+                                // Add assertion: price should be numeric
+                                $this->assertIsNumeric($variant['price'], 'Variant price should be numeric');
                             } else {
                                 echo "Open price";
                             }
@@ -272,6 +285,9 @@ class MenuTest extends TestCase
                     }
                 }
             }
+
+            // Add assertion: foundPricing should be true if any variant price was found
+            $this->assertTrue($foundPricing, 'At least one variant with pricing should exist in the menu');
 
             if ($foundPricing) {
                 echo "\n\n✓ Variant pricing information retrieved successfully";
