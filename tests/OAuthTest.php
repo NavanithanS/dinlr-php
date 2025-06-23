@@ -28,11 +28,13 @@ class OAuthTest extends TestCase
         echo "\nSetting up test configuration...";
 
         // Load base config first
-        $this->testConfig = require __DIR__ . '/config.php';
+        // $this->testConfig = require __DIR__ . '/config.php';
 
         // Then load OAuth-specific config
-        $oauthConfig      = require __DIR__ . '/config_oauth.php';
-        $this->testConfig = array_merge($this->testConfig, $oauthConfig);
+        // $oauthConfig      = require __DIR__ . '/config_oauth.php';
+        // $this->testConfig = array_merge($this->testConfig, $oauthConfig);
+
+        $this->testConfig = require __DIR__ . '/config_oauth.php';
 
         echo "\n• Client ID: " . $this->testConfig['client_id'];
         echo "\n• Redirect URI: " . $this->testConfig['redirect_uri'];
@@ -104,11 +106,13 @@ class OAuthTest extends TestCase
 
         $response = $httpclient->post('/', [
             'query' => [
-                'redirect' => '/oauth/authorize?client_id=LBUEEETXDVCPYIIPMTVGDLEPLDCVSMIC&redirect_uri=https://yins.3b.my/dinlrauthorize&state=fromNava',
+                'redirect' => '/oauth/authorize?client_id=' . urlencode($this->testConfig['client_id'])
+                    . '&redirect_uri=' . urlencode($this->testConfig['redirect_uri'])
+                    . '&state=' . urlencode($this->testConfig['test_oauth_data']['state']),
             ],
             'form_params' => [
-                'email' => 'nava@3b.my',
-                'password' => 'GwKSso$q?',
+                'email' => $this->testConfig['test_oauth_data']['backoffice_email'],
+                'password' => $this->testConfig['test_oauth_data']['backoffice_password'],
             ],
             'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -125,9 +129,9 @@ class OAuthTest extends TestCase
 
         $response2 = $httpclient->post('/oauth/authorize', [
             'query' => [
-                'client_id' => 'LBUEEETXDVCPYIIPMTVGDLEPLDCVSMIC',
-                'redirect_uri' => 'https://yins.3b.my/dinlrauthorize',
-                'state' => 'fromNava',
+                'client_id' => $this->testConfig['client_id'],
+                'redirect_uri' => $this->testConfig['redirect_uri'],
+                'state' => $this->testConfig['test_oauth_data']['state'],
             ],
             'form_params' => [
                 'authorize' => 1,

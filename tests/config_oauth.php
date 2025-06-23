@@ -18,7 +18,7 @@ return array_merge($config, [
     | Your Dinlr OAuth client ID for testing.
     |
     */
-    'client_id'       => getenv('DINLR_TEST_CLIENT_ID') ?: 'LBUEEETXDVCPYIIPMTVGDLEPLDCVSMIC',
+    'client_id'       => env('DINLR_TEST_CLIENT_ID'),
 
     /*
     |--------------------------------------------------------------------------
@@ -28,7 +28,7 @@ return array_merge($config, [
     | Your Dinlr OAuth client secret for testing.
     |
     */
-    'client_secret'   => getenv('DINLR_TEST_CLIENT_SECRET') ?: 'RHLPJRVFJJDWUFWOLGEPXCVIHTTDJEQG',
+    'client_secret'   => env('DINLR_TEST_CLIENT_SECRET'),
 
     /*
     |--------------------------------------------------------------------------
@@ -38,7 +38,7 @@ return array_merge($config, [
     | The redirect URI for OAuth testing.
     |
     */
-    'redirect_uri'    => getenv('DINLR_TEST_REDIRECT_URI') ?: 'https://dinlr.my/dinlrauthorize',
+    'redirect_uri'    => env('DINLR_TEST_REDIRECT_URI'),
 
     /*
     |--------------------------------------------------------------------------
@@ -50,6 +50,8 @@ return array_merge($config, [
     */
     'test_oauth_data' => [
         'state'          => 'fromNava',
+        'backoffice_email' => env('DINLR_TEST_BACKOFFICE_EMAIL') ?? 'test_email',
+        'backoffice_password' => env('DINLR_TEST_BACKOFFICE_PASSWORD') ?? 'test_password',
         'callback'       => [
             'code'          => 'test_auth_code',
             'restaurant_id' => 'test_restaurant_id',
