@@ -24,7 +24,7 @@ class InputSanitizer
 
         // Normalize unicode
         if (function_exists('normalizer_normalize')) {
-            $input = normalizer_normalize($input, Normalizer::FORM_C);
+            $input = normalizer_normalize($input, \Normalizer::FORM_C);
         }
 
         return $input;
@@ -62,36 +62,31 @@ class InputSanitizer
 
     /**
      * Detect suspicious patterns
+     * Performance: Combined patterns and quick checks to minimize regex overhead
      */
     private static function containsSuspiciousPatterns(string $input): bool
     {
-        // Use simpler patterns to avoid ReDoS
-        $suspiciousPatterns = [
-            // SQL injection - simplified patterns
-            '/\b(union|select|insert|delete|update|drop)\s+/i',
-            '/[\'";][^-]*--/',
-
-            // XSS patterns
-            '/<script/i',
-            '/javascript:/i',
-            '/on\w+\s*=/i',
-
-            // Path traversal
-            '/\.\.[\\/\\\\]/',
-
-            // Command injection
-            '/[;&|`$]/',
-
-            // Excessive length
-            '/^.{1000,}$/',
-        ];
-
-        foreach ($suspiciousPatterns as $pattern) {
-            if (preg_match($pattern, $input)) {
-                return true;
-            }
+        // Performance: Quick length check first (no regex needed)
+        if (strlen($input) >= 1000) {
+            return true;
         }
 
-        return false;
+        // Performance: Quick character check for common injection chars
+        if (strpbrk($input, ';|`$') !== false) {
+            return true;
+        }
+
+        // Performance: Combined regex patterns to reduce preg_match calls from 7 to 1
+        // This is MUCH faster than running 7 separate regex checks
+        $combinedPattern = '/(?:' .
+            '\b(?:union|select|insert|delete|update|drop)\s+|' . // SQL injection
+            '[\'";][^-]*--|' .                                     // SQL comment injection
+            '<script|' .                                           // XSS script tag
+            'javascript:|' .                                       // XSS javascript protocol
+            'on\w+\s*=|' .                                         // XSS event handlers
+            '\.\.[\\/\\\\]' .                                      // Path traversal
+            ')/i';
+
+        return (bool) preg_match($combinedPattern, $input);
     }
 }

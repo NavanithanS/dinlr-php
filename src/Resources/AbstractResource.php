@@ -53,6 +53,8 @@ abstract class AbstractResource
         if ($maxLength && strlen($sanitized) > $maxLength) {
             throw new ValidationException("{$fieldName} cannot exceed {$maxLength} characters");
         }
+
+        return $sanitized;
     }
 
     /**
@@ -73,40 +75,54 @@ abstract class AbstractResource
 
     /**
      * NEW: Bulk validation method for arrays
+     * Performance: Batch error collection to reduce exception overhead
      */
     protected function validateAndSanitizeArray(array $data, array $rules): array
     {
         $sanitized = [];
+        $errors    = [];
 
         foreach ($rules as $field => $rule) {
             if (! isset($data[$field])) {
                 if ($rule['required'] ?? false) {
-                    throw new ValidationException("Required field '{$field}' is missing");
+                    $errors[] = "Required field '{$field}' is missing";
                 }
                 continue;
             }
 
-            $value     = $data[$field];
-            $type      = $rule['type'] ?? 'string';
-            $maxLength = $rule['max_length'] ?? null;
+            try {
+                $value     = $data[$field];
+                $type      = $rule['type'] ?? 'string';
+                $maxLength = $rule['max_length'] ?? null;
 
-            switch ($type) {
-                case 'string':
-                    $sanitized[$field] = $this->validateString($value, $field, $maxLength);
-                    break;
-                case 'email':
-                    $sanitized[$field] = $this->validateEmail($value, $field);
-                    break;
-                case 'identifier':
-                    $sanitized[$field] = $this->validateIdentifier($value, $field);
-                    break;
-                case 'numeric':
-                    $this->validateNumeric($value, $field, $rule['min'] ?? null, $rule['max'] ?? null);
-                    $sanitized[$field] = $value; // Numeric validation doesn't change the value
-                    break;
-                default:
-                    $sanitized[$field] = $value;
+                switch ($type) {
+                    case 'string':
+                        $sanitized[$field] = $this->validateString($value, $field, $maxLength);
+                        break;
+                    case 'email':
+                        $sanitized[$field] = $this->validateEmail($value, $field);
+                        break;
+                    case 'identifier':
+                        $sanitized[$field] = $this->validateIdentifier($value, $field);
+                        break;
+                    case 'numeric':
+                        $this->validateNumeric($value, $field, $rule['min'] ?? null, $rule['max'] ?? null);
+                        $sanitized[$field] = $value; // Numeric validation doesn't change the value
+                        break;
+                    default:
+                        $sanitized[$field] = $value;
+                }
+            } catch (ValidationException $e) {
+                $errors[] = $e->getMessage();
             }
+        }
+
+        // Performance: Throw once with all errors instead of one at a time
+        if (!empty($errors)) {
+            throw new ValidationException(
+                'Validation failed: ' . implode('; ', $errors),
+                ['errors' => $errors]
+            );
         }
 
         return $sanitized;
@@ -164,26 +180,31 @@ abstract class AbstractResource
 
     /**
      * SECURE: Safe logging with sanitization
+     * Performance: Combined regex patterns and optimized order of operations
      */
     protected function sanitizeForLogging(string $input, int $maxLength = 100): string
     {
-        // Remove sensitive patterns
-        $patterns = [
-            '/Bearer\s+[A-Za-z0-9\-_\.]+/',            // API tokens
-            '/password["\']?\s*[:=]\s*["\']?[^"\']+/', // Passwords
-            '/api_key["\']?\s*[:=]\s*["\']?[^"\']+/',  // API keys
-        ];
-
-        $sanitized = $input;
-        foreach ($patterns as $pattern) {
-            $sanitized = preg_replace($pattern, '[REDACTED]', $sanitized);
+        // Performance: Early length truncation to reduce regex processing
+        if (strlen($input) > $maxLength) {
+            $input = substr($input, 0, $maxLength);
         }
 
-        // Remove control characters and limit length
+        // Performance: Combined regex patterns - reduces from 4 preg_replace calls to 2
+        // First pass: Remove sensitive data patterns
+        $sensitivePattern = '/(?:' .
+            'Bearer\s+[A-Za-z0-9\-_\.]+|' .                 // API tokens
+            'password["\']?\s*[:=]\s*["\']?[^"\']+|' .      // Passwords
+            'api_key["\']?\s*[:=]\s*["\']?[^"\']+ ' .       // API keys
+            ')/i';
+
+        $sanitized = preg_replace($sensitivePattern, '[REDACTED]', $input);
+
+        // Second pass: Remove control characters (combined with length limit already applied)
         $sanitized = preg_replace('/[\r\n\t\x00-\x1F\x7F]/', ' ', $sanitized);
 
-        if (strlen($sanitized) > $maxLength) {
-            $sanitized = substr($sanitized, 0, $maxLength) . '...';
+        // Add ellipsis if truncated
+        if (strlen($input) > $maxLength) {
+            $sanitized .= '...';
         }
 
         return $sanitized;

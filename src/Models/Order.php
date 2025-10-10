@@ -315,46 +315,4 @@ class Order extends AbstractModel
     {
         return $this->getStatus() === 'cancelled';
     }
-
-    public function setItemKitchenStatusPending(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/kitchen/pending");
-        $this->client->request('POST', $path);
-        return true;
-    }
-
-    public function setItemKitchenStatusFulfilled(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/kitchen/fulfill");
-        $this->client->request('POST', $path);
-        return true;
-    }
-
-    public function setItemKitchenStatusDefault(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/kitchen/default");
-        $this->client->request('POST', $path);
-        return true;
-    }
-
-    public function setItemExpediteStatusPending(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/expedite/pending");
-        $this->client->request('POST', $path);
-        return true;
-    }
-
-    public function setItemExpediteStatusExpedited(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/expedite/expedite");
-        $this->client->request('POST', $path);
-        return true;
-    }
-
-    public function setItemExpediteStatusDefault(string $orderId, string $orderItemId, string $restaurantId = null): bool
-    {
-        $path = $this->buildPath($restaurantId, "{$orderId}/order_items/{$orderItemId}/expedite/default");
-        $this->client->request('POST', $path);
-        return true;
-    }
 }

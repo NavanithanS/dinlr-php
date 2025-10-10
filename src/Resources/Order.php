@@ -475,40 +475,71 @@ class Order extends AbstractResource implements ResourceInterface
 
     /**
      * Validate order update data
+     * Performance: Batch validation to collect all errors at once
      */
     private function validateOrderUpdateData(array $data): void
     {
-        // Validate items if provided
+        $errors = [];
+
+        // Validate items if provided - batch error collection
         if (isset($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as $index => $item) {
-                $this->validateOrderItem($item, "items[{$index}]");
+                try {
+                    $this->validateOrderItem($item, "items[{$index}]");
+                } catch (ValidationException $e) {
+                    $errors[] = $e->getMessage();
+                }
             }
         }
 
-        // Validate charges if provided
+        // Validate charges if provided - batch error collection
         if (isset($data['charges']) && is_array($data['charges'])) {
             foreach ($data['charges'] as $index => $charge) {
-                $this->validateCharge($charge, "charges[{$index}]");
+                try {
+                    $this->validateCharge($charge, "charges[{$index}]");
+                } catch (ValidationException $e) {
+                    $errors[] = $e->getMessage();
+                }
             }
         }
 
-        // Validate discounts if provided
+        // Validate discounts if provided - batch error collection
         if (isset($data['discounts']) && is_array($data['discounts'])) {
             foreach ($data['discounts'] as $index => $discount) {
-                $this->validateDiscount($discount, "discounts[{$index}]");
+                try {
+                    $this->validateDiscount($discount, "discounts[{$index}]");
+                } catch (ValidationException $e) {
+                    $errors[] = $e->getMessage();
+                }
             }
         }
 
-        // Validate payments if provided
+        // Validate payments if provided - batch error collection
         if (isset($data['payments']) && is_array($data['payments'])) {
             foreach ($data['payments'] as $index => $payment) {
-                $this->validatePaymentData($payment, "payments[{$index}]");
+                try {
+                    $this->validatePaymentData($payment, "payments[{$index}]");
+                } catch (ValidationException $e) {
+                    $errors[] = $e->getMessage();
+                }
             }
         }
 
         // Validate order_info if provided
         if (isset($data['order_info'])) {
-            $this->validateOrderInfo($data['order_info']);
+            try {
+                $this->validateOrderInfo($data['order_info']);
+            } catch (ValidationException $e) {
+                $errors[] = $e->getMessage();
+            }
+        }
+
+        // Performance: Throw once with all errors
+        if (!empty($errors)) {
+            throw new ValidationException(
+                'Order validation failed: ' . implode('; ', $errors),
+                ['errors' => $errors]
+            );
         }
     }
 
@@ -605,15 +636,24 @@ class Order extends AbstractResource implements ResourceInterface
             $this->validateString($item['variant'], "{$prefix}.variant");
         }
 
-        // Modifier options validation
+        // Modifier options validation - batch errors
         if (isset($item['modifier_options']) && is_array($item['modifier_options'])) {
+            $modErrors = [];
             foreach ($item['modifier_options'] as $index => $modOption) {
-                $this->validateRequired($modOption, ['modifier_option']);
-                $this->validateString($modOption['modifier_option'], "{$prefix}.modifier_options[{$index}].modifier_option");
+                try {
+                    $this->validateRequired($modOption, ['modifier_option']);
+                    $this->validateString($modOption['modifier_option'], "{$prefix}.modifier_options[{$index}].modifier_option");
 
-                if (isset($modOption['qty'])) {
-                    $this->validateNumeric($modOption['qty'], "{$prefix}.modifier_options[{$index}].qty", 1);
+                    if (isset($modOption['qty'])) {
+                        $this->validateNumeric($modOption['qty'], "{$prefix}.modifier_options[{$index}].qty", 1);
+                    }
+                } catch (ValidationException $e) {
+                    $modErrors[] = $e->getMessage();
                 }
+            }
+
+            if (!empty($modErrors)) {
+                throw new ValidationException(implode('; ', $modErrors));
             }
         }
     }

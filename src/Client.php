@@ -50,6 +50,19 @@ class Client
     private $resources = [];
 
     /**
+     * Response cache for GET requests
+     * Performance: Reduces redundant API calls for static data
+     * @var array
+     */
+    private $responseCache = [];
+
+    /**
+     * Cache TTL in seconds (5 minutes default)
+     * @var int
+     */
+    private $cacheTtl = 300;
+
+    /**
      * Create a new Dinlr API client
      *
      * @param Config|array $config Configuration options
@@ -79,6 +92,7 @@ class Client
 
     /**
      * Make a request to the Dinlr API
+     * Performance: Implements caching for GET requests to reduce redundant API calls
      *
      * @param string $method HTTP method
      * @param string $endpoint API endpoint
@@ -88,6 +102,19 @@ class Client
      */
     public function request(string $method, string $endpoint, array $params = []): array
     {
+        // Performance: Check cache for GET requests
+        if ('GET' === $method) {
+            $cacheKey = $this->getCacheKey($endpoint, $params);
+            $cached   = $this->getFromCache($cacheKey);
+
+            if (null !== $cached) {
+                if ($this->config->isDebug()) {
+                    error_log("Dinlr API Cache Hit: {$endpoint}");
+                }
+                return $cached;
+            }
+        }
+
         if ($this->config->isDebug()) {
             $safeMethod   = $this->sanitizeForLogging($method);
             $safeEndpoint = $this->sanitizeForLogging($endpoint);
@@ -126,6 +153,11 @@ class Client
             if ($this->config->isDebug()) {
                 $safeData = $this->sanitizeResponseForLogging($data);
                 error_log("Dinlr API Response: " . json_encode($safeData));
+            }
+
+            // Performance: Cache successful GET requests
+            if ('GET' === $method) {
+                $this->setCache($cacheKey, $data);
             }
 
             return $data;
@@ -465,6 +497,57 @@ class Client
         return $this->config;
     }
 
+    /**
+     * Generate cache key for a request
+     * Performance: Fast hash-based key generation
+     */
+    private function getCacheKey(string $endpoint, array $params): string
+    {
+        return md5($endpoint . json_encode($params));
+    }
+
+    /**
+     * Get data from cache if not expired
+     * Performance: In-memory cache with TTL check
+     */
+    private function getFromCache(string $key): ?array
+    {
+        if (!isset($this->responseCache[$key])) {
+            return null;
+        }
+
+        $cached = $this->responseCache[$key];
+
+        // Check if cache has expired
+        if ($cached['expires_at'] < time()) {
+            unset($this->responseCache[$key]);
+            return null;
+        }
+
+        return $cached['data'];
+    }
+
+    /**
+     * Store data in cache with expiration
+     * Performance: Simple array-based cache for request lifecycle
+     */
+    private function setCache(string $key, array $data): void
+    {
+        $this->responseCache[$key] = [
+            'data'       => $data,
+            'expires_at' => time() + $this->cacheTtl,
+        ];
+    }
+
+    /**
+     * Clear all cached responses
+     * Performance: Allows manual cache invalidation when needed
+     */
+    public function clearCache(): void
+    {
+        $this->responseCache = [];
+    }
+
     private function sanitizeForLogging(string $input): string
     {
         return preg_replace('/[\r\n\t\x00-\x1F\x7F]/', ' ', $input);
@@ -474,5 +557,33 @@ class Client
     {
         $sensitiveKeys = ['access_token', 'password', 'secret', 'key'];
         return $this->recursiveRedact($data, $sensitiveKeys);
+    }
+
+    /**
+     * Recursively redact sensitive keys from an array
+     * Performance: Efficient single-pass redaction for debug logging
+     *
+     * @param array $data Data to redact
+     * @param array $sensitiveKeys Keys to redact
+     * @return array Redacted data
+     */
+    private function recursiveRedact(array $data, array $sensitiveKeys): array
+    {
+        foreach ($data as $key => $value) {
+            // Check if key matches any sensitive pattern (case-insensitive)
+            foreach ($sensitiveKeys as $sensitiveKey) {
+                if (stripos($key, $sensitiveKey) !== false) {
+                    $data[$key] = '[REDACTED]';
+                    continue 2; // Skip to next key, no need to check other sensitive patterns
+                }
+            }
+
+            // Recursively redact nested arrays
+            if (is_array($value)) {
+                $data[$key] = $this->recursiveRedact($value, $sensitiveKeys);
+            }
+        }
+
+        return $data;
     }
 }
