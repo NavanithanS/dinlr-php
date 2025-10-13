@@ -132,7 +132,7 @@ class Client
         }
 
         try {
-            $response = $this->httpClient->request($method, $endpoint, $options);
+            $response = $this->httpClient->request($method, $this->config->getApiUrl() . $endpoint, $options);
 
             $body = $response->getBody()->getContents();
             $data = json_decode($body, true);
@@ -512,7 +512,7 @@ class Client
      */
     private function getFromCache(string $key): ?array
     {
-        if (!isset($this->responseCache[$key])) {
+        if (! isset($this->responseCache[$key])) {
             return null;
         }
 
