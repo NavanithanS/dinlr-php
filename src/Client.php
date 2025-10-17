@@ -161,13 +161,14 @@ class Client
             }
 
             return $data;
-
         } catch (RequestException $e) {
-            throw new ApiException(
-                $e->getMessage(),
-                $e->getCode(),
-                $e
-            );
+            error_log("Dinlr API Error: " . $e->getMessage() . " (Code: " . $e->getCode() . ")");
+            return [
+                'data' => [
+                    'errorMessage' => $e->getMessage(),
+                    'errorCode'    => $e->getCode(),
+                ],
+            ];
         }
     }
 
