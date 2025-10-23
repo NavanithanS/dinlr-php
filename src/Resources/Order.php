@@ -127,14 +127,26 @@ class Order extends AbstractResource implements ResourceInterface
      * @throws ApiException
      * @throws ValidationException
      */
-    public function close(string $orderId, string $restaurantId = null): OrderModel
+    public function close(string $orderId, string $restaurantId = null): array
     {
         $this->validateString($orderId, 'Order ID');
 
         $path     = $this->buildPath($restaurantId, "{$orderId}/close");
         $response = $this->client->request('POST', $path);
 
-        return new OrderModel($response['data'] ?? []);
+        if (isset($response['errors'])) {
+            return [
+                'status'    => 'error',
+                'title'     => $response['errors']['title'] ?? 'Order Change Failed',
+                'message'   => $response['errors']['detail'] ?? 'Unknown error occurred',
+                'errorCode' => $response['errors']['status'] ?? 0,
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'data'   => new OrderModel($response['data'] ?? [])
+        ];
     }
 
     /**
@@ -165,14 +177,26 @@ class Order extends AbstractResource implements ResourceInterface
      * @throws ApiException
      * @throws ValidationException
      */
-    public function cancel(string $orderId, string $restaurantId = null): OrderModel
+    public function cancel(string $orderId, string $restaurantId = null): array
     {
         $this->validateString($orderId, 'Order ID');
 
         $path     = $this->buildPath($restaurantId, "{$orderId}/cancel");
         $response = $this->client->request('POST', $path);
 
-        return new OrderModel($response['data'] ?? []);
+        if (isset($response['errors'])) {
+            return [
+                'status'    => 'error',
+                'title'     => $response['errors']['title'] ?? 'Order Change Failed',
+                'message'   => $response['errors']['detail'] ?? 'Unknown error occurred',
+                'errorCode' => $response['errors']['status'] ?? 0,
+            ];
+        }
+
+        return [
+            'status' => 'success',
+            'data'   => new OrderModel($response['data'] ?? [])
+        ];
     }
 
     /**
@@ -535,7 +559,7 @@ class Order extends AbstractResource implements ResourceInterface
         }
 
         // Performance: Throw once with all errors
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw new ValidationException(
                 'Order validation failed: ' . implode('; ', $errors),
                 ['errors' => $errors]
@@ -652,7 +676,7 @@ class Order extends AbstractResource implements ResourceInterface
                 }
             }
 
-            if (!empty($modErrors)) {
+            if (! empty($modErrors)) {
                 throw new ValidationException(implode('; ', $modErrors));
             }
         }
