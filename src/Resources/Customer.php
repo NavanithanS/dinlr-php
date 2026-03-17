@@ -60,18 +60,10 @@ class Customer extends AbstractResource implements ResourceInterface
      */
     public function create(array $data, string $restaurantId = null): CustomerModel
     {
-        // Define validation rules
-        $rules = [
-            'first_name' => ['type' => 'string', 'max_length' => 50, 'required' => true],
-            'email'      => ['type' => 'email', 'required' => true],
-            'phone'      => ['type' => 'string', 'max_length' => 20],
-        ];
-
-        // Validate and sanitize all at once
-        $sanitizedData = $this->validateAndSanitizeArray($data, $rules);
+        $data = $this->validateCustomerData($data, true);
 
         $path     = $this->buildPath($restaurantId);
-        $response = $this->client->request('POST', $path, $sanitizedData);
+        $response = $this->client->request('POST', $path, $data);
 
         return new CustomerModel($response['data'] ?? []);
     }
@@ -89,7 +81,7 @@ class Customer extends AbstractResource implements ResourceInterface
     public function update(string $customerId, array $data, string $restaurantId = null): CustomerModel
     {
         $this->validateString($customerId, 'Customer ID');
-        $this->validateCustomerData($data, false);
+        $data = $this->validateCustomerData($data, false);
 
         $path     = $this->buildPath($restaurantId, $customerId);
         $response = $this->client->request('PUT', $path, $data);
@@ -98,9 +90,47 @@ class Customer extends AbstractResource implements ResourceInterface
     }
 
     /**
+     * Delete a customer
+     *
+     * @param string $customerId Customer ID
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return bool
+     * @throws ApiException
+     * @throws ValidationException
+     */
+    public function delete(string $customerId, string $restaurantId = null): bool
+    {
+        $this->validateString($customerId, 'Customer ID');
+
+        $path = $this->buildPath($restaurantId, $customerId);
+        $this->client->request('DELETE', $path);
+
+        return true;
+    }
+
+    /**
+     * Generate a unique, time-sensitive QR code to verify a customer identity
+     *
+     * @param string $customerId Customer ID
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return array Response data containing qr_type, format, payload, expires_at
+     * @throws ApiException
+     * @throws ValidationException
+     */
+    public function generateQr(string $customerId, string $restaurantId = null): array
+    {
+        $this->validateString($customerId, 'Customer ID');
+
+        $path     = $this->buildPath($restaurantId, $customerId . '/qr');
+        $response = $this->client->request('GET', $path);
+
+        return $response['data'] ?? [];
+    }
+
+    /**
      * Search for customers
      *
-     * @param array $params Search parameters (email, phone, reference)
+     * @param array $params Search parameters (email, phone, reference, external_reference)
      * @param string|null $restaurantId Restaurant ID (uses config default if null)
      * @return CustomerCollection
      * @throws ApiException
@@ -108,7 +138,7 @@ class Customer extends AbstractResource implements ResourceInterface
      */
     public function search(array $params, string $restaurantId = null): CustomerCollection
     {
-        $this->validateSearchParams($params);
+        $params = $this->validateSearchParams($params);
 
         $path     = $this->buildPath($restaurantId, 'search');
         $response = $this->client->request('GET', $path, $params);
@@ -117,9 +147,9 @@ class Customer extends AbstractResource implements ResourceInterface
     }
 
     /**
-     * Validate customer data
+     * Validate and sanitize customer data. Returns the sanitized copy of $data.
      */
-    private function validateCustomerData(array $data, bool $isCreate): void
+    private function validateCustomerData(array $data, bool $isCreate): array
     {
         // For create, require at least one identifier
         if ($isCreate) {
@@ -131,13 +161,15 @@ class Customer extends AbstractResource implements ResourceInterface
             }
         }
 
-        // Validate field lengths
+        // Validate and sanitize string fields — capture returned sanitized value.
+        // Note: email is intentionally excluded here; it is handled separately below
+        // by validateEmail() which applies email-specific sanitization (FILTER_SANITIZE_EMAIL).
+        // Including it here would run sanitizeString() twice on the email value.
         $stringFields = [
             'reference'    => 50,
             'first_name'   => 50,
             'last_name'    => 50,
             'company_name' => 50,
-            'email'        => 50,
             'phone'        => 50,
             'address1'     => 100,
             'address2'     => 100,
@@ -148,13 +180,13 @@ class Customer extends AbstractResource implements ResourceInterface
 
         foreach ($stringFields as $field => $maxLength) {
             if (isset($data[$field]) && ! empty($data[$field])) {
-                $this->validateString($data[$field], $field, $maxLength);
+                $data[$field] = $this->validateString($data[$field], $field, $maxLength);
             }
         }
 
-        // Validate email format
+        // Validate and sanitize email — capture returned sanitized value
         if (! empty($data['email'])) {
-            $this->validateEmail($data['email']);
+            $data['email'] = $this->validateEmail($data['email']);
         }
 
         // Validate date of birth
@@ -181,14 +213,16 @@ class Customer extends AbstractResource implements ResourceInterface
                 throw new ValidationException("{$field} must be a boolean value");
             }
         }
+
+        return $data;
     }
 
     /**
-     * Validate search parameters
+     * Validate and sanitize search parameters. Returns the sanitized copy of $params.
      */
-    private function validateSearchParams(array $params): void
+    private function validateSearchParams(array $params): array
     {
-        $validFields   = ['reference', 'email', 'phone'];
+        $validFields   = ['reference', 'email', 'phone', 'external_reference'];
         $hasValidField = false;
 
         foreach ($validFields as $field) {
@@ -196,9 +230,9 @@ class Customer extends AbstractResource implements ResourceInterface
                 $hasValidField = true;
 
                 if ('email' === $field) {
-                    $this->validateEmail($params[$field]);
+                    $params[$field] = $this->validateEmail($params[$field]);
                 } else {
-                    $this->validateString($params[$field], $field);
+                    $params[$field] = $this->validateString($params[$field], $field);
                 }
             }
         }
@@ -208,5 +242,7 @@ class Customer extends AbstractResource implements ResourceInterface
                 'At least one search parameter is required: ' . implode(', ', $validFields)
             );
         }
+
+        return $params;
     }
 }

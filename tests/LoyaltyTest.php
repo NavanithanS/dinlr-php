@@ -1,4 +1,4 @@
-  <?php
+<?php
 namespace Nava\Dinlr\Tests;
 
 use Nava\Dinlr\Client;
@@ -142,6 +142,83 @@ class LoyaltyTest extends TestCase
                 $this->markTestSkipped('Loyalty member enrollment not available: ' . $e->getMessage());
             } else {
                 $this->fail('Loyalty member enrollment failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    public function testUpdateLoyaltyMember()
+    {
+        echo "\n\nSTEP 5b: Testing update loyalty member";
+        echo "\n--------------------------------------------------------------";
+
+        try {
+            $programs = $this->client->loyalty()->getPrograms();
+            if (count($programs) === 0) {
+                $this->markTestSkipped('No loyalty programs available');
+                return;
+            }
+
+            $programId = $programs->first()->getId();
+            $members   = $this->client->loyalty()->getMembers($programId);
+
+            if (count($members) === 0) {
+                $this->markTestSkipped('No loyalty members available');
+                return;
+            }
+
+            $member        = $members->first();
+            $memberId      = $member->getId();
+            $expiresAt     = (new \DateTime('+1 year'))->format('c');
+            $updatedMember = $this->client->loyalty()->updateMember($programId, $memberId, ['expires_at' => $expiresAt]);
+
+            echo "\n• Member updated successfully";
+            echo "\n• Member ID: " . $updatedMember->getId();
+
+            $this->assertInstanceOf(\Nava\Dinlr\Models\LoyaltyMember::class, $updatedMember);
+            $this->assertEquals($memberId, $updatedMember->getId());
+
+        } catch (ApiException $e) {
+            if ($e->getCode() === 404) {
+                $this->markTestSkipped('Loyalty member update not available: ' . $e->getMessage());
+            } else {
+                $this->fail('Loyalty member update failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    public function testSearchLoyaltyMembers()
+    {
+        echo "\n\nSTEP 5c: Testing search loyalty members";
+        echo "\n--------------------------------------------------------------";
+
+        try {
+            $programs = $this->client->loyalty()->getPrograms();
+            if (count($programs) === 0) {
+                $this->markTestSkipped('No loyalty programs available');
+                return;
+            }
+
+            $programId = $programs->first()->getId();
+            $members   = $this->client->loyalty()->getMembers($programId);
+
+            if (count($members) === 0) {
+                $this->markTestSkipped('No loyalty members available');
+                return;
+            }
+
+            $customerId    = $members->first()->getCustomer();
+            $searchResults = $this->client->loyalty()->searchMembers($programId, ['customer_id' => $customerId]);
+
+            echo "\n• Search results: " . count($searchResults);
+            echo "\n✓ Member search via API endpoint successful";
+
+            $this->assertInstanceOf(\Nava\Dinlr\Models\LoyaltyMemberCollection::class, $searchResults);
+
+        } catch (ApiException $e) {
+            if ($e->getCode() === 404) {
+                $this->markTestSkipped('Loyalty member search not available: ' . $e->getMessage());
+            } else {
+                $this->fail('Loyalty member search failed: ' . $e->getMessage());
             }
         }
     }

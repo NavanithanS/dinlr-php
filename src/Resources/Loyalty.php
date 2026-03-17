@@ -152,6 +152,57 @@ class Loyalty extends AbstractResource
     }
 
     /**
+     * Update a loyalty member
+     *
+     * @param string $loyaltyProgramId Loyalty program ID
+     * @param string $memberId Member ID
+     * @param array $memberData Member data (e.g. expires_at)
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return LoyaltyMember
+     * @throws ApiException
+     * @throws ValidationException
+     */
+    public function updateMember(string $loyaltyProgramId, string $memberId, array $memberData, string $restaurantId = null): LoyaltyMember
+    {
+        $this->validateString($loyaltyProgramId, 'Loyalty program ID');
+        $this->validateString($memberId, 'Member ID');
+
+        if (isset($memberData['expires_at'])) {
+            $this->validateDateTime($memberData['expires_at'], 'expires_at');
+        }
+
+        $path     = $this->buildPath($restaurantId, "{$loyaltyProgramId}/members/{$memberId}");
+        $response = $this->client->request('PUT', $path, $memberData);
+
+        return new LoyaltyMember($response['data'] ?? []);
+    }
+
+    /**
+     * Search loyalty members
+     *
+     * @param string $loyaltyProgramId Loyalty program ID
+     * @param array $searchParams Search parameters (customer_id, limit, page, updated_at_min)
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return LoyaltyMemberCollection
+     * @throws ApiException
+     * @throws ValidationException
+     */
+    public function searchMembers(string $loyaltyProgramId, array $searchParams = [], string $restaurantId = null): LoyaltyMemberCollection
+    {
+        $this->validateString($loyaltyProgramId, 'Loyalty program ID');
+        $this->validatePagination($searchParams);
+
+        if (! empty($searchParams['customer_id'])) {
+            $searchParams['customer_id'] = $this->validateString($searchParams['customer_id'], 'Customer ID');
+        }
+
+        $path     = $this->buildPath($restaurantId, "{$loyaltyProgramId}/members/search");
+        $response = $this->client->request('GET', $path, $searchParams);
+
+        return new LoyaltyMemberCollection($response['data'] ?? []);
+    }
+
+    /**
      * Create a loyalty transaction
      *
      * @param string $loyaltyProgramId Loyalty program ID
@@ -185,7 +236,7 @@ class Loyalty extends AbstractResource
     public function searchTransactions(string $loyaltyProgramId, array $searchParams = [], string $restaurantId = null): LoyaltyTransactionCollection
     {
         $this->validateString($loyaltyProgramId, 'Loyalty program ID');
-        $this->validateTransactionSearchParams($searchParams);
+        $searchParams = $this->validateTransactionSearchParams($searchParams);
 
         $path     = $this->buildPath($restaurantId, "{$loyaltyProgramId}/transactions/search");
         $response = $this->client->request('GET', $path, $searchParams);
@@ -308,8 +359,8 @@ class Loyalty extends AbstractResource
         $this->validateString($loyaltyProgramId, 'Loyalty program ID');
         $this->validateString($customerId, 'Customer ID');
 
-        $members = $this->getMembers($loyaltyProgramId, $restaurantId);
-        return $members->findByCustomer($customerId);
+        $members = $this->searchMembers($loyaltyProgramId, ['customer_id' => $customerId, 'limit' => 1], $restaurantId);
+        return $members->first();
     }
 
     /**
@@ -543,8 +594,10 @@ class Loyalty extends AbstractResource
 
     /**
      * Validate transaction search parameters
+     *
+     * @return array Sanitized parameters
      */
-    private function validateTransactionSearchParams(array $params): void
+    private function validateTransactionSearchParams(array $params): array
     {
         $this->validatePagination($params);
 
@@ -552,7 +605,7 @@ class Loyalty extends AbstractResource
         $stringFields = ['location_id', 'order_id', 'member_id', 'app_id'];
         foreach ($stringFields as $field) {
             if (isset($params[$field]) && ! empty($params[$field])) {
-                $this->validateString($params[$field], $field);
+                $params[$field] = $this->validateString($params[$field], $field);
             }
         }
 
@@ -560,5 +613,7 @@ class Loyalty extends AbstractResource
         if (isset($params['created_at_min'])) {
             $this->validateDate($params['created_at_min'], 'created_at_min', 'c');
         }
+
+        return $params;
     }
 }

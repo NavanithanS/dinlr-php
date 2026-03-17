@@ -8,6 +8,7 @@ use Nava\Dinlr\Exception\ConfigException;
 use Nava\Dinlr\Resources\Cart;
 use Nava\Dinlr\Resources\Category;
 use Nava\Dinlr\Resources\Charge;
+use Nava\Dinlr\Resources\ComboGroup;
 use Nava\Dinlr\Resources\Customer;
 use Nava\Dinlr\Resources\CustomerGroup;
 use Nava\Dinlr\Resources\DiningOption;
@@ -15,6 +16,7 @@ use Nava\Dinlr\Resources\Discount;
 use Nava\Dinlr\Resources\Experience;
 use Nava\Dinlr\Resources\Floorplan;
 use Nava\Dinlr\Resources\Item;
+use Nava\Dinlr\Resources\ItemBlock;
 use Nava\Dinlr\Resources\Location;
 use Nava\Dinlr\Resources\Loyalty;
 use Nava\Dinlr\Resources\Material;
@@ -254,6 +256,34 @@ class Client
         }
 
         return $this->resources['item'];
+    }
+
+    /**
+     * Get the combo group resource
+     *
+     * @return ComboGroup
+     */
+    public function comboGroups(): ComboGroup
+    {
+        if (! isset($this->resources['combo_group'])) {
+            $this->resources['combo_group'] = new ComboGroup($this);
+        }
+
+        return $this->resources['combo_group'];
+    }
+
+    /**
+     * Get the item block resource
+     *
+     * @return ItemBlock
+     */
+    public function itemBlocks(): ItemBlock
+    {
+        if (! isset($this->resources['item_block'])) {
+            $this->resources['item_block'] = new ItemBlock($this);
+        }
+
+        return $this->resources['item_block'];
     }
 
     /**

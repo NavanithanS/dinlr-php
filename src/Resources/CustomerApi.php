@@ -29,17 +29,9 @@ class CustomerApi extends AbstractResource
      */
     public function getAllCustomers(string $restaurantId = null, array $params = []): CustomerCollection
     {
-        $path = $this->buildPath($restaurantId);
+        $this->validatePagination($params);
 
-        // Validate pagination parameters
-        if (isset($params['limit']) && ($params['limit'] < 1 || $params['limit'] > 200)) {
-            throw new ValidationException('Limit must be between 1 and 200');
-        }
-
-        if (isset($params['page']) && $params['page'] < 1) {
-            throw new ValidationException('Page must be greater than 0');
-        }
-
+        $path     = $this->buildPath($restaurantId);
         $response = $this->client->request('GET', $path, $params);
         return new CustomerCollection($response['data'] ?? []);
     }
@@ -58,9 +50,11 @@ class CustomerApi extends AbstractResource
     public function createCustomer(array $customerData, string $restaurantId = null): CustomerModel
     {
         // Validate required fields - at least one must be present
-        if (empty($customerData['reference']) &&
+        if (
+            empty($customerData['reference']) &&
             empty($customerData['first_name']) &&
-            empty($customerData['last_name'])) {
+            empty($customerData['last_name'])
+        ) {
             throw new ValidationException(
                 'At least one of the following fields is required: reference, first_name, last_name',
                 ['required_one_of' => ['reference', 'first_name', 'last_name']]
@@ -70,7 +64,7 @@ class CustomerApi extends AbstractResource
         // Validate field lengths and formats
         $this->validateCustomerData($customerData);
 
-        $path     = $this->buildPath($restaurantId);
+        $path = $this->buildPath($restaurantId);
         $response = $this->client->request('POST', $path, $customerData);
 
         return new CustomerModel($response['data'] ?? []);
@@ -95,10 +89,28 @@ class CustomerApi extends AbstractResource
         // Validate field lengths and formats for provided fields
         $this->validateCustomerData($customerData, false);
 
-        $path     = $this->buildPath($restaurantId, $customerId);
+        $path = $this->buildPath($restaurantId, $customerId);
         $response = $this->client->request('PUT', $path, $customerData);
 
         return new CustomerModel($response['data'] ?? []);
+    }
+
+    /**
+     * Delete a customer profile
+     *
+     * @param string $customerId Customer ID to delete
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return bool True on success
+     * @throws ApiException On API errors
+     */
+    public function delete(string $customerId, string $restaurantId = null): bool
+    {
+        $this->validateString($customerId, 'Customer ID');
+
+        $path = $this->buildPath($restaurantId, $customerId);
+        $this->client->request('DELETE', $path);
+
+        return true;
     }
 
     /**
@@ -116,10 +128,26 @@ class CustomerApi extends AbstractResource
             throw new ValidationException('Customer ID is required');
         }
 
-        $path     = $this->buildPath($restaurantId, $customerId);
+        $path = $this->buildPath($restaurantId, $customerId);
         $response = $this->client->request('GET', $path);
 
         return new CustomerModel($response['data'] ?? []);
+    }
+
+    /**
+     * Generate a unique, time-sensitive QR code to verify a customer identity in the restaurant
+     *
+     * @param string $customerId Customer ID
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @return array Response data containing QR code info
+     * @throws ApiException On API errors
+     */
+    public function generateQr(string $customerId, string $restaurantId = null): array
+    {
+        $path = $this->buildPath($restaurantId, $customerId . '/qr');
+        $response = $this->client->request('GET', $path);
+
+        return $response['data'] ?? [];
     }
 
     /**
@@ -134,28 +162,28 @@ class CustomerApi extends AbstractResource
     public function searchCustomers(array $searchParams, string $restaurantId = null): CustomerCollection
     {
         // Validate at least one search parameter is provided
-        $validSearchFields   = ['reference', 'email', 'phone'];
+        $validSearchFields = ['reference', 'email', 'phone', 'external_reference'];
         $hasValidSearchField = false;
 
         foreach ($validSearchFields as $field) {
-            if (! empty($searchParams[$field])) {
+            if (!empty($searchParams[$field])) {
                 $hasValidSearchField = true;
                 break;
             }
         }
 
-        if (! $hasValidSearchField) {
+        if (!$hasValidSearchField) {
             throw new ValidationException(
                 'At least one search parameter is required: ' . implode(', ', $validSearchFields)
             );
         }
 
         // Validate email format if provided
-        if (! empty($searchParams['email']) && ! filter_var($searchParams['email'], FILTER_VALIDATE_EMAIL)) {
+        if (!empty($searchParams['email']) && !filter_var($searchParams['email'], FILTER_VALIDATE_EMAIL)) {
             throw new ValidationException('Invalid email format');
         }
 
-        $path     = $this->buildPath($restaurantId, 'search');
+        $path = $this->buildPath($restaurantId, 'search');
         $response = $this->client->request('GET', $path, $searchParams);
 
         return new CustomerCollection($response['data'] ?? []);
@@ -213,10 +241,26 @@ class CustomerApi extends AbstractResource
      */
     public function getCustomerGroups(string $restaurantId = null, array $params = []): \Nava\Dinlr\Models\CustomerGroupCollection
     {
-        $path     = str_replace('/customers', '/customer-groups', $this->buildPath($restaurantId));
+        $path = str_replace('/customers', '/customer-groups', $this->buildPath($restaurantId));
         $response = $this->client->request('GET', $path, $params);
 
         return new \Nava\Dinlr\Models\CustomerGroupCollection($response['data'] ?? []);
+    }
+
+    /**
+     * Retrieve all customer custom fields
+     *
+     * @param string|null $restaurantId Restaurant ID (uses config default if null)
+     * @param array $params Query parameters
+     * @return array List of custom fields
+     * @throws ApiException On API errors
+     */
+    public function getCustomFields(string $restaurantId = null, array $params = []): array
+    {
+        $path = str_replace('/customers', '/customer-custom-fields', $this->buildPath($restaurantId));
+        $response = $this->client->request('GET', $path, $params);
+
+        return $response['data'] ?? [];
     }
 
     /**
@@ -232,17 +276,17 @@ class CustomerApi extends AbstractResource
 
         // Validate field lengths
         $fieldLimits = [
-            'reference'    => 50,
-            'first_name'   => 50,
-            'last_name'    => 50,
+            'reference' => 50,
+            'first_name' => 50,
+            'last_name' => 50,
             'company_name' => 50,
-            'email'        => 50,
-            'phone'        => 50,
-            'postal'       => 50,
-            'address1'     => 100,
-            'address2'     => 100,
-            'city'         => 100,
-            'notes'        => 200,
+            'email' => 50,
+            'phone' => 50,
+            'postal' => 50,
+            'address1' => 100,
+            'address2' => 100,
+            'city' => 100,
+            'notes' => 200,
         ];
 
         foreach ($fieldLimits as $field => $maxLength) {
@@ -252,37 +296,37 @@ class CustomerApi extends AbstractResource
         }
 
         // Validate email format
-        if (! empty($data['email']) && ! filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+        if (!empty($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
             $errors['email'] = 'Invalid email format';
         }
 
         // Validate date of birth format
-        if (! empty($data['dob'])) {
+        if (!empty($data['dob'])) {
             $date = \DateTime::createFromFormat('Y-m-d', $data['dob']);
-            if (! $date || $date->format('Y-m-d') !== $data['dob']) {
+            if (!$date || $date->format('Y-m-d') !== $data['dob']) {
                 $errors['dob'] = 'Date of birth must be in YYYY-MM-DD format';
             }
         }
 
         // Validate gender
-        if (! empty($data['gender']) && ! in_array($data['gender'], ['M', 'F'])) {
+        if (!empty($data['gender']) && !in_array($data['gender'], ['M', 'F'])) {
             $errors['gender'] = 'Gender must be M or F';
         }
 
         // Validate country code (should be ISO Alpha-2)
-        if (! empty($data['country']) && strlen($data['country']) !== 2) {
+        if (!empty($data['country']) && strlen($data['country']) !== 2) {
             $errors['country'] = 'Country must be a 2-character ISO Alpha-2 code';
         }
 
         // Validate boolean fields
         $booleanFields = ['marketing_consent_email', 'marketing_consent_text', 'marketing_consent_phone'];
         foreach ($booleanFields as $field) {
-            if (isset($data[$field]) && ! is_bool($data[$field])) {
+            if (isset($data[$field]) && !is_bool($data[$field])) {
                 $errors[$field] = "Field {$field} must be a boolean value";
             }
         }
 
-        if (! empty($errors)) {
+        if (!empty($errors)) {
             throw new ValidationException('Validation failed', $errors);
         }
     }
@@ -331,7 +375,7 @@ class CustomerApi extends AbstractResource
 
         foreach ($customerIds as $customerId) {
             try {
-                $customer            = $this->getCustomer($customerId, $restaurantId);
+                $customer = $this->getCustomer($customerId, $restaurantId);
                 $existingCustomers[] = $customer->getId();
             } catch (ApiException $e) {
                 if ($e->getCode() !== 404) {

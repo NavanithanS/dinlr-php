@@ -328,6 +328,60 @@ class VoucherTest extends TestCase
     }
 
     /**
+     * Test deleting a voucher
+     */
+    public function testDeleteVoucher()
+    {
+        echo "\n\nSTEP 9: Testing delete voucher";
+        echo "\n--------------------------------------------------------------";
+
+        $client = new Client($this->testConfig);
+
+        // Create a temporary voucher to delete
+        $locations  = $client->locations()->list();
+        $locationId = count($locations) > 0 ? $locations->first()->getId() : null;
+        $discounts  = $client->discounts()->list($locationId);
+
+        if (count($discounts) === 0) {
+            $this->markTestSkipped('No discounts available for creating a test voucher to delete.');
+        }
+
+        $discountId  = $discounts->first()->getId();
+        $voucherCode = 'DELTEST' . time();
+
+        try {
+            $newVoucher = $client->vouchers()->create([
+                'voucher_code'    => $voucherCode,
+                'type'            => 'discount',
+                'discount'        => $discountId,
+                'max_redemptions' => 1,
+                'start_date'      => (new \DateTime())->format('c'),
+            ]);
+
+            echo "\n• Created temp voucher: " . $newVoucher->getId();
+
+            $result = $client->vouchers()->delete($newVoucher->getId());
+
+            echo "\n• Delete returned: " . ($result ? 'true' : 'false');
+            echo "\n✓ Voucher deleted successfully";
+
+            $this->assertTrue($result);
+
+            // Confirm it's gone
+            try {
+                $client->vouchers()->get($newVoucher->getId());
+                $this->fail('Expected ApiException (404) after deletion');
+            } catch (\Nava\Dinlr\Exception\ApiException $e) {
+                $this->assertEquals(404, $e->getCode());
+                echo "\n✓ Deleted voucher returns 404 as expected";
+            }
+        } catch (\Nava\Dinlr\Exception\ApiException $e) {
+            echo "\n• API Error: " . $e->getMessage();
+            $this->markTestSkipped('Unable to create/delete voucher: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Test validation errors
      */
     public function testValidationErrors()
