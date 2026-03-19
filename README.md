@@ -352,7 +352,7 @@ The Dinlr PHP client provides access to all API resources through dedicated clas
 | ------------ | ------------------------ | ----------------------------------------------------------------------------------------------------- |
 | Experience   | Dining experiences       | list($locationId), get($experienceId)                                                                 |
 | TableSection | Table section management | list($locationId), get($tableSectionId)                                                               |
-| Reservation  | Reservation booking      | getAvailableServices($locationId, $date, $adult, $children), book($data), list(), get($reservationId) |
+| Reservation  | Reservation booking      | getAvailableServices($locationId, $date, $adult, $children), book($data), list(), get($reservationId), cancel($id) *(v0.3.1)*, setArrived($id) *(v0.3.1)* |
 
 ## Advanced Usage
 

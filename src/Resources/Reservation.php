@@ -65,4 +65,57 @@ class Reservation extends AbstractResource
 
         return new ReservationModel($response['data'] ?? []);
     }
+
+    public function setBooked(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'book', $restaurantId);
+    }
+
+    public function setArrived(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'arrive', $restaurantId);
+    }
+
+    public function setSeated(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'seat', $restaurantId);
+    }
+
+    public function setCompleted(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'complete', $restaurantId);
+    }
+
+    public function setNoShow(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'no_show', $restaurantId);
+    }
+
+    public function cancel(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'cancel', $restaurantId);
+    }
+
+    public function setPendingPayment(string $reservationId, string $restaurantId = null): ReservationModel
+    {
+        return $this->updateStatus($reservationId, 'pending_payment', $restaurantId);
+    }
+
+    /**
+     * Helper method to update a reservation's status
+     *
+     * @param string $reservationId
+     * @param string $statusAction The endpoint action (e.g. 'book', 'arrive', 'cancel')
+     * @param string|null $restaurantId
+     * @return ReservationModel
+     */
+    protected function updateStatus(string $reservationId, string $statusAction, string $restaurantId = null): ReservationModel
+    {
+        $this->validateString($reservationId, 'Reservation ID');
+
+        $path     = $this->buildPath($restaurantId, "{$reservationId}/{$statusAction}");
+        $response = $this->client->request('POST', $path);
+
+        return new ReservationModel($response['data'] ?? []);
+    }
 }

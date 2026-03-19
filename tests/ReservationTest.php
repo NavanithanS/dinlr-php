@@ -251,11 +251,46 @@ class ReservationTest extends TestCase
             $this->assertInstanceOf(\Nava\Dinlr\Models\Reservation::class, $reservation);
             $this->assertNotEmpty($reservation->getId());
 
+            return $reservation;
+
         } catch (ApiException $e) {
             if ($e->getCode() === 404) {
                 $this->markTestSkipped('Reservation booking not available: ' . $e->getMessage());
             } else {
                 $this->fail('Reservation booking failed: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * @depends testBookReservation
+     */
+    public function testChangeReservationStatus($reservation)
+    {
+        echo "\n\nSTEP 6: Testing change reservation status";
+        echo "\n--------------------------------------------------------------";
+
+        try {
+            if (!$reservation || !$reservation->getId()) {
+                $this->markTestSkipped('No reservation passed from testBookReservation');
+                return;
+            }
+
+            echo "\n• Changing status for reservation ID: " . $reservation->getId();
+
+            // Test cancellation
+            $updatedReservation = $this->client->reservations()->cancel($reservation->getId());
+            
+            echo "\n• New Status: " . $updatedReservation->getStatus();
+            echo "\n✓ Reservation status changed successfully";
+
+            $this->assertEquals('cancelled', $updatedReservation->getStatus());
+
+        } catch (ApiException $e) {
+            if ($e->getCode() === 404) {
+                $this->markTestSkipped('Reservation status change not available: ' . $e->getMessage());
+            } else {
+                $this->fail('Reservation status change failed: ' . $e->getMessage());
             }
         }
     }
